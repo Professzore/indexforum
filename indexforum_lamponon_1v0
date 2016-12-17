@@ -1,0 +1,100 @@
+#define Lampa 2 // LED Pin9-re kotve
+#define LED 13 // LED Pin8-re kotve
+#define kapcsolo 7 // nyomogomb Pin7-re kotve
+
+const unsigned long delayForSinglePress = 3000; // in microseconds
+const unsigned long delayForInfiniteOn = 1000;   // in microseconds
+unsigned long timeWhenTheButtonWerePressed = 0;
+bool singlePressDelayWithinOverflow = false;
+bool infiniteOnDelayWithinOverflow = false;
+unsigned long singlePressOverflow = 0;
+unsigned long infiniteOnOverflow = 0;
+
+bool isButtonPressed = false;
+bool isLampOn = false;
+bool isLampOnForALongTime = false;
+
+void setup()
+{
+  pinMode(Lampa, OUTPUT); //  Lampa-hez tartozo lab kimenet
+  pinMode(LED, OUTPUT);
+  pinMode(kapcsolo, INPUT_PULLUP); // a nyomogombhoz tartozo lab bemenet
+  digitalWrite(Lampa, LOW); //Lampa kikapcsolasa
+  digitalWrite(LED, LOW);
+}
+
+void loop()
+{
+  if (digitalRead(kapcsolo) == LOW)
+  {
+    if (isButtonPressed == false && isLampOn == false && isLampOnForALongTime == false)
+    {
+      isButtonPressed = true;
+      isLampOn = true;
+      digitalWrite(Lampa, HIGH);
+      if (millis() > (4294967295 - delayForSinglePress)) // 4294967295 is millis overflow boundary
+      {
+        singlePressDelayWithinOverflow = true;
+        singlePressOverflow = 4294967295 - millis();
+        if (millis() > (4294967295 - delayForInfiniteOn))
+        {
+          infiniteOnDelayWithinOverflow = true;
+          infiniteOnOverflow = 4294967295 - millis();
+        }
+      }
+      timeWhenTheButtonWerePressed = millis();
+    }
+    if (isButtonPressed == false && isLampOnForALongTime == true)
+    {
+      isButtonPressed = true;
+      isLampOn = false;
+      digitalWrite(Lampa, LOW);
+      isLampOnForALongTime = false;
+      digitalWrite(LED, LOW);
+    }
+    if (isLampOn == true && isButtonPressed == true && infiniteOnDelayWithinOverflow == false && (timeWhenTheButtonWerePressed + delayForInfiniteOn) < millis() && isLampOnForALongTime == false)
+    {
+      isLampOn = true;
+      digitalWrite(Lampa, HIGH);
+      isLampOnForALongTime = true;
+      digitalWrite(LED, HIGH);
+    }
+    if (isLampOn == true && isButtonPressed == true && infiniteOnDelayWithinOverflow == true && millis() < delayForInfiniteOn && (delayForInfiniteOn - infiniteOnOverflow) < millis() && isLampOnForALongTime == false)
+    {
+      isLampOn = true;
+      infiniteOnDelayWithinOverflow = false;
+      digitalWrite(Lampa, HIGH);
+      isLampOnForALongTime = true;
+      digitalWrite(LED, HIGH);
+    }
+  }
+
+  if (digitalRead(kapcsolo) == HIGH)
+  {
+    if (isButtonPressed == true && (timeWhenTheButtonWerePressed + 50) < millis())  // 50 ms debouncing
+    {
+      isButtonPressed = false;
+    }
+  }
+
+  if (isLampOn == true && isLampOnForALongTime == false)
+  {
+    switch (singlePressDelayWithinOverflow) {
+      case false:
+        if ((timeWhenTheButtonWerePressed + delayForSinglePress) < millis())
+        {
+          isLampOn = false;
+          digitalWrite(Lampa, LOW);
+        }
+        break;
+      case true:
+        if (millis() < delayForSinglePress && (delayForSinglePress - singlePressOverflow) < millis())
+        {
+          isLampOn = false;
+          digitalWrite(Lampa, LOW);
+          singlePressDelayWithinOverflow = false;
+        }
+        break;
+    }
+  }
+}
